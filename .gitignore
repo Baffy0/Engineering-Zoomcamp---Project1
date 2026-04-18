@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Data files
+data.parquet
+
 # Distribution / packaging
 .Python
 build/
@@ -82,6 +85,9 @@ target/
 profile_default/
 ipython_config.py
 
+# UV
+.uv/
+uv.lock
 # pyenv
 #   For a library or package, you might want to ignore these files since the code is
 #   intended to run in multiple environments; otherwise, check them in:

@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:13
+    container_name: taxi_trips
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: Trips_Ingestion
+    ports:
+      - "5432:5432"
+    networks:
+      - taxi_network
+
+  taxi_data:
+    image: taxi_trips_image
+    container_name: taxi_data
+    depends_on:
+      - postgres
+    command: ["taxi_data.py", "--url", "https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_2025-11.parquet"]
+    networks:
+      - taxi_network
+
+  taxi_zone:
+    image: taxi_trips_image
+    container_name: taxi_zone
+    depends_on:
+      - postgres
+    command: ["taxi_zone.py"]
+    networks:
+      - taxi_network
+
+networks:
+  taxi_network:
+    driver: bridge
