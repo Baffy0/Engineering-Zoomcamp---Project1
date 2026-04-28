@@ -35,17 +35,17 @@ Given the `docker-compose.yaml`:
 
 ```yaml
 services:
-  db:
-    container_name: postgres
-    image: postgres:17-alpine
+  postgres:
+    image: postgres:13
+    container_name: taxi_trips
     environment:
-      POSTGRES_USER: 'postgres'
-      POSTGRES_PASSWORD: 'postgres'
-      POSTGRES_DB: 'taxi_data'
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: Trips_Ingestion
     ports:
-      - '5433:5432'
-    volumes:
-      - vol-pgdata:/var/lib/postgresql/data
+      - "5432:5432"
+    networks:
+      - taxi_network
 ```
 
 Since pgAdmin and Postgres are on the same Docker network, containers communicate using:
@@ -63,7 +63,7 @@ db:5432
 
 ---
 
-## 📦 Prepare the Data
+##  Prepare the Data
 
 Download taxi trips data:
 
@@ -79,7 +79,7 @@ wget https://github.com/DataTalksClub/nyc-tlc-data/releases/download/misc/taxi_z
 
 ---
 
-## 🏗️ Data Architecture
+##  Data Architecture
 
 *(Add architecture image here if available)*
 
@@ -100,23 +100,23 @@ docker compose ps
 Build the ingestion image:
 
 ```bash
-docker build -t taxi_ingestion-python .
+docker build -t taxi_data .
 ```
 
 Run the container:
 
 ```bash
 docker run -it --rm \
-  --network module13_taxi_ingestion \
-  --name taxi_ingestion-python-container \
-  taxi_ingestion-python
+  --network taxi_nextwork \
+  --name taxi_zone \
+  taxi_data
 ```
 
 Run ingestion scripts:
 
 ```bash
-uv run python green_taxi.py
-uv run python zones_taxi.py
+uv run python taxi_data.py
+uv run python taxi_zone.py
 ```
 
 ---
@@ -139,7 +139,7 @@ root
 ### Connect to Postgres:
 
 ```
-Host name/address: taxi_ingestion_db
+Host name/address: Trips_Ingestion
 Port: 5432
 Maintenance database: taxi_db
 Username: root
@@ -154,11 +154,11 @@ Password: root
 
 ```sql
 SELECT 
-    COUNT(*) AS Trips_less_1mile
-FROM green_taxi_table
-WHERE lpep_pickup_datetime >= '2025-11-01' 
-  AND lpep_pickup_datetime < '2025-12-01'
-  AND trip_distance <= 1;
+    COUNT(*) AS short_trip_count
+FROM green_taxi_table AS gtt
+WHERE gtt.lpep_pickup_datetime >= '2025-11-01'
+  AND gtt.lpep_pickup_datetime < '2025-12-01'
+  AND gtt.trip_distance <= 1;
 ```
 
 **Answer:**
@@ -173,15 +173,16 @@ WHERE lpep_pickup_datetime >= '2025-11-01'
 
 ```sql
 SELECT 
-    pickup_date
-FROM
-    (SELECT
-         DATE(lpep_pickup_datetime) AS pickup_date,
-         SUM(trip_distance) AS TotalDist
-     FROM green_taxi_table
-     WHERE trip_distance < 100
-     GROUP BY DATE(lpep_pickup_datetime)
-     ORDER BY SUM(trip_distance) DESC) AS T
+    daily_data.pickup_day
+FROM (
+    SELECT
+        DATE(gtt.lpep_pickup_datetime) AS pickup_day,
+        SUM(gtt.trip_distance) AS total_distance
+    FROM green_taxi_table AS gtt
+    WHERE gtt.trip_distance < 100
+    GROUP BY DATE(gtt.lpep_pickup_datetime)
+    ORDER BY total_distance DESC
+) AS daily_data
 LIMIT 1;
 ```
 
@@ -197,13 +198,14 @@ LIMIT 1;
 
 ```sql
 SELECT 
-    Z."Zone",
-    SUM(G.total_amount) AS SumofMoneyPaid
-FROM green_taxi_table AS G
-JOIN zones Z ON G."PULocationID" = Z."LocationID"
-WHERE DATE(lpep_pickup_datetime) = '2025-11-18'
-GROUP BY Z."Zone"
-ORDER BY SumofMoneyPaid DESC;
+    zn."Zone" AS zone_name,
+    SUM(gt.total_amount) AS total_revenue
+FROM green_taxi_table AS gt
+JOIN zones AS zn 
+    ON gt."PULocationID" = zn."LocationID"
+WHERE DATE(gt.lpep_pickup_datetime) = '2025-11-18'
+GROUP BY zn."Zone"
+ORDER BY total_revenue DESC;
 ```
 
 **Answer:**
@@ -218,16 +220,18 @@ East Harlem North
 
 ```sql
 SELECT 
-    Z1."Zone" AS dropoff_zone,
-    G.tip_amount
-FROM green_taxi_table AS G
-JOIN zones Z1 ON G."DOLocationID" = Z1."LocationID"
-JOIN zones Z2 ON G."PULocationID" = Z2."LocationID"
+    dz."Zone" AS dropoff_zone_name,
+    gt.tip_amount AS highest_tip
+FROM green_taxi_table AS gt
+JOIN zones AS dz 
+    ON gt."DOLocationID" = dz."LocationID"
+JOIN zones AS pz 
+    ON gt."PULocationID" = pz."LocationID"
 WHERE 
-    Z2."Zone" = 'East Harlem North'
-    AND G.lpep_pickup_datetime >= '2025-11-01'
-    AND G.lpep_pickup_datetime < '2025-12-01'
-ORDER BY G.tip_amount DESC
+    pz."Zone" = 'East Harlem North'
+    AND gt.lpep_pickup_datetime >= '2025-11-01'
+    AND gt.lpep_pickup_datetime < '2025-12-01'
+ORDER BY gt.tip_amount DESC
 LIMIT 1;
 ```
 
@@ -290,18 +294,7 @@ terraform init, terraform apply -auto-approve, terraform destroy
 
 ---
 
-## 📚 References
 
-* https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/bigquery_dataset
-* https://registry.terraform.io/modules/terraform-google-modules/bigquery/google/latest
-* https://cloud.google.com/blog/products/data-analytics/introducing-the-bigquery-terraform-module
-* https://registry.terraform.io/providers/hashicorp/google/4.35.0/docs/resources/storage_bucket
 
----
 
-## 🔗 Alternative Solution
-
-* https://github.com/stephandoh/zoomcamp57877
-
----
 
