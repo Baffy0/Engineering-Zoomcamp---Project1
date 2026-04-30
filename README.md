@@ -80,6 +80,7 @@ wget https://github.com/DataTalksClub/nyc-tlc-data/releases/download/misc/taxi_z
 ---
 
 ##  Data Architecture
+<img src="https://github.com/user-attachments/assets/43689321-35c4-45ba-ac86-2cbb00e3212a" width="680"/>
 
 *(Add architecture image here if available)*
 
