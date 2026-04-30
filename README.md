@@ -53,7 +53,7 @@ Since pgAdmin and Postgres are on the same Docker network, containers communicat
 * **Hostname:** `db`
 * **Port:** `5432`
 
-The mapping `5433:5432` is only for host-to-container access.
+The mapping `5432:5432` is only for host-to-container access.
 
 **Answer:**
 
